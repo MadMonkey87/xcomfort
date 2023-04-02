@@ -1,4 +1,4 @@
-###Version 1.3.3
+###Version 1.3.4
 from homeassistant.components.cover import (
     SUPPORT_CLOSE,
     SUPPORT_OPEN,
@@ -22,7 +22,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         if device['type'].find("Shutt") >= 0:
             async_add_entities([xcShutter(coordinator, i, device['id'], device['name'])])
         i += 1
-
+    for zone in coordinator.xc.zones_list:
+        if zone['virtual'] is False:
+            async_add_entities([xcShutterGroup(coordinator, i, zone['zoneId'], zone['zoneName'])])
+        i += 1
+    
 class xcShutter(CoverEntity):
 
     _attr_supported_features = SUPPORT_CLOSE | SUPPORT_OPEN | SUPPORT_STOP | SUPPORT_OPEN_TILT | SUPPORT_CLOSE_TILT
@@ -96,13 +100,13 @@ class xcShutter(CoverEntity):
     async def async_close_cover(self, **kwargs):
         if await self.coordinator.xc.switch(self._unique_id,"close"):
             #self.coordinator.xc.devices[self.id]['value']="CLOSED"
-            _LOGGER.debug("xcShutter.open %s success",self.name)
+            _LOGGER.debug("xcShutter.close %s success",self.name)
         else:
-            _LOGGER.debug("xcShutter.open %s unsucessful",self.name)
+            _LOGGER.debug("xcShutter.close %s unsucessful",self.name)
 
     async def async_stop_cover(self, **kwargs):
         if await self.coordinator.xc.switch(self._unique_id,"stop"):
-            self.coordinator.xc.devices[self.id]['value']="?"
+            self.coordinator.xc.devices[self.id]['value']=""
             _LOGGER.debug("xcShutter.stop %s success",self.name)
         else:
             _LOGGER.debug("xcShutter.stop %s unsucessful",self.name)
@@ -121,3 +125,90 @@ class xcShutter(CoverEntity):
 
     async def async_update(self):
         await self.coordinator.async_request_refresh()
+
+class xcShutterGroup(CoverEntity):
+
+    _attr_supported_features = SUPPORT_CLOSE | SUPPORT_OPEN | SUPPORT_STOP | SUPPORT_OPEN_TILT | SUPPORT_CLOSE_TILT
+
+    def __init__(self, coordinator, id, unique_name, name ):
+        self.id = id
+        self._name = name
+        self._unique_id = unique_name
+        self.coordinator = coordinator
+        self._device_class = "shutter"
+        self.is_closed = None
+        _LOGGER.debug("xcShutterGroup.init() %s", self.name)
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def icon(self):
+        if self.available:
+            if self.is_closed is True:
+                return "mdi:window-shutter"
+            elif self.is_closed is False:
+                return "mdi:window-shutter-open"
+            else:
+                return "mdi:help-circle-outline"
+        else:
+            return "mdi:exclamation-thick"
+
+    @property
+    def assumed_state(self):
+        return True
+
+    @property
+    def unique_id(self):
+        return self._unique_id
+
+    @property
+    def device_class(self):
+        return self._device_class
+
+    @property
+    def is_closed(self):
+        return self.is_closed
+
+    async def async_open_cover(self, **kwargs):
+        if await self.coordinator.xc.set_shading_group_state(self._unique_id,"open"):
+            #self.coordinator.xc.devices[self.id]['value']="OPENED"
+            _LOGGER.debug("xcShutterGroup.open %s success",self.name)
+        else:
+            _LOGGER.debug("xcShutterGroup.open %s unsucessful",self.name)
+
+    async def async_close_cover(self, **kwargs):
+        if await self.coordinator.xc.set_shading_group_state(self._unique_id,"close"):
+            #self.coordinator.xc.devices[self.id]['value']="CLOSED"
+            _LOGGER.debug("xcShutterGroup.close %s success",self.name)
+        else:
+            _LOGGER.debug("xcShutterGroup.close %s unsucessful",self.name)
+
+    async def async_stop_cover(self, **kwargs):
+        if await self.coordinator.xc.set_shading_group_state(self._unique_id,"stop"):
+            self.coordinator.xc.devices[self.id]['value']=""
+            _LOGGER.debug("xcShutterGroup.stop %s success",self.name)
+        else:
+            _LOGGER.debug("xcShutterGroup.stop %s unsucessful",self.name)
+
+    async def async_open_cover_tilt(self, **kwargs):
+        if await self.coordinator.xc.set_shading_group_state(self._unique_id,"stepOpen"):
+            _LOGGER.debug("xcShutterGroup.stepOpen %s success",self.name)
+        else:
+            _LOGGER.debug("xcShutterGroup.stepOpen %s unsucessful",self.name)
+            
+    async def async_close_cover_tilt(self, **kwargs):
+        if await self.coordinator.xc.set_shading_group_state(self._unique_id,"stepClose"):
+            _LOGGER.debug("xcShutterGroup.stepClose %s success",self.name)
+        else:
+            _LOGGER.debug("xcShutterGroup.stepClose %s unsucessful",self.name)
+
+    async def async_update(self):
+        def state = await self.coordinator.xc.get_shading_group_state(self._unique_id)
+        if state['value'].lower() == "opened":
+            self.is_closed = False
+        elif state['value'].lower() == "closed":
+            self.is_closed = True
+        else:
+            self.is_closed = None

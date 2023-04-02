@@ -1,4 +1,4 @@
-###Version 1.3.3
+###Version 1.3.4
 import async_timeout
 import logging
 
@@ -7,8 +7,8 @@ from homeassistant.helpers import entity
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from xcomfortshc import xcomfortAPI
-#from .xcomfortAPI import xcomfortAPI
+#from xcomfortshc import xcomfortAPI
+from .xcomfortAPI import xcomfortAPI
 
 from .const import DOMAIN, VERSION
 _LOGGER = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ async def async_setup_entry(hass, config_entry):
     coordinator = XCDataUpdateCoordinator(hass, websession, config_entry.data["url"],config_entry.data["zone"],
         config_entry.data["username"], config_entry.data["password"], config_entry.data["scan_interval"])
     await coordinator.xc.connect()
+    await coordinator.xc.get_zones()
     await coordinator.async_refresh()
     hass.data[DOMAIN] = coordinator
 
@@ -35,11 +36,11 @@ async def async_setup_entry(hass, config_entry):
     async def async_service1(service_call):
         await coordinator.xc.debug()
 
-    hass.services.async_register(DOMAIN,"save_status_files",async_service1,)
+    hass.services.async_register(DOMAIN,"save_status_files",async_service1)
     return True
 
 class XCDataUpdateCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass, session, url, zone, username, password, scan_interval,  ):
+    def __init__(self, hass, session, url, zone, username, password, scan_interval):
         stat_interval = 60 // scan_interval
         if stat_interval == 0:
             stat_interval = 1
