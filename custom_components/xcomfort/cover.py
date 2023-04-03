@@ -136,7 +136,7 @@ class xcShutterGroup(CoverEntity):
         self._unique_id = unique_name
         self.coordinator = coordinator
         self._device_class = "shutter"
-        self.is_closed = None
+        self._state = None
         _LOGGER.debug("xcShutterGroup.init() %s", self.name)
 
     @property
@@ -169,7 +169,14 @@ class xcShutterGroup(CoverEntity):
 
     @property
     def is_closed(self):
-        return self.is_closed
+        if self._state is None:
+            return None
+        elif self._state['value'].lower() == "opened":
+            return False
+        elif self._state['value'].lower() == "closed":
+            return True
+        else:
+            return None
 
     async def async_open_cover(self, **kwargs):
         if await self.coordinator.xc.set_shading_group_state(self._unique_id,"open"):
@@ -205,10 +212,4 @@ class xcShutterGroup(CoverEntity):
             _LOGGER.debug("xcShutterGroup.stepClose %s unsucessful",self.name)
 
     async def async_update(self):
-        def state = await self.coordinator.xc.get_shading_group_state(self._unique_id)
-        if state['value'].lower() == "opened":
-            self.is_closed = False
-        elif state['value'].lower() == "closed":
-            self.is_closed = True
-        else:
-            self.is_closed = None
+        self._state = self.coordinator.xc.get_shading_group_state(self._unique_id)
